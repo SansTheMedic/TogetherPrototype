@@ -1,0 +1,46 @@
+<html>
+    <head>
+        <script src="PatienceDiff.js"></script>
+    </head>
+    <body>
+        <p id="session_code"></p>
+        <textarea id="Liveshare" style="width: 100%; height: 50%;"></textarea>
+    </body>
+    <script>
+        // our chat box to share
+        var textbox = document.getElementById('Liveshare')
+        // the CURRENT state of the textbox
+        var old_state = textbox.value;
+
+        textbox.onkeyup = function(){
+            // Get the text in the box
+            var new_state = textbox.value;
+            // Get our differences in the text
+            var diff = patienceDiff(old_state.split(""), new_state.split(""));
+            var diffs = diff.lines;
+            // A list of our additions and deletions
+            var adds = [];
+            var dels = [];
+            // Loop the results of PatienceDiff to find any additions and deletions
+            for (const each_diff in diffs) {
+                var old_index = diffs[each_diff].aIndex;
+                var new_index = diffs[each_diff].bIndex;
+                if (old_index != -1 && new_index != -1) {
+                    //In this case, the character hasn't actually changed, except maybe being shifted by other
+                    // changes.
+                    continue;
+                }
+                if (old_index == -1) {
+                    //In this case, the character has been added at this position; so we log it as an addition
+                    adds.push([diffs[each_diff].line, new_index]);
+                }
+                if (new_index == -1) {
+                    //In this case, the character has been deleted at this position; so we log it as a deletion
+                    dels.push([diffs[each_diff].line, old_index]);
+                }
+            }
+            alert(String(adds) + "\n" + String(dels))
+            old_state = new_state
+        }
+    </script>
+</html>
