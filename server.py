@@ -1,6 +1,8 @@
 import cherrypy
+import ottype
 import random
 import os, os.path
+import threading
 
 class Session():
     # Initialization. Generates its storage and a random session code
@@ -54,6 +56,10 @@ class Liveshare(object):
     def __init__(self):
         # Our dictionary of sessions. Each session will be keyed by its code and contain the session object
         self.Sessions = {}
+        # Our queue of Operation Transform Changes
+        self.changes = []
+        # A lock to ensure changes are handled one at a time
+        self.lock = threading.Lock()
 
     @cherrypy.expose
     def index(self):
@@ -107,31 +113,41 @@ class Liveshare(object):
         adds = input_json["adds"]
         dels = input_json["dels"]
 
+        # We want to turn our literal add and delete counters into Operations that OT understands
+        operative_command = self.TurnToOperative(adds, dels)
+
         # Get the user from cookies
         this_user = cherrypy.request.cookie["User_id"]
 
         # Make sure that the user making this call is in the session
         if self.Sessions[session_code].IsUser(this_user) == True:
-            # get the state of that session
-            current_state = self.Sessions[session_code].GetState()
+            # Add the operation to the queue
+            self.changes.append(operative_command)
 
-            # Handle deletions first
-            for each_del in dels:
-                index = int(each_del[1])
-                current_state = current_state[:index] + current_state[(index+1):]
-            # Then handle additions
-            for each_add in adds:
-                index = int(each_add[1])
-                char = each_add[0]
-                current_state = current_state[:index] + char + current_state[index:]
-            
-            # Update the stored session with this state
-            self.Sessions[session_code].SetState(current_state)
+            # Lock our state temporarily to ensure only one command is used at once
+            with self.lock:
+                # Get the current state
+                current_state = self.Sessions[session_code].GetState()
+
+                # Get the next update. In theory, this should be the one that started this function
+                operation = self.changes[0]
+                # Remove that update from the queue
+                self.changes.pop(0)
+
+                # Apply that update to the state
+                new_state = ottype.apply(current_state, operation)
+
+                # Transform all remaining operations in the queue to bridge the change
+                for i in range(len(self.changes)):
+                    self.changes[i] = ottype.transform(self.changes[i], operation)
+                
+                # Apply the new state to the session
+                self.Sessions[session_code].SetState(new_state)
 
             # Return our state to the user
             return {"error": False,
                     "msg": None,
-                    "newState": current_state}
+                    "newState": self.Sessions[session_code].GetState()}
         else:
             return {"error": True,
                     "msg": "You aren't part of that session",
@@ -180,6 +196,46 @@ class Liveshare(object):
                 session_code = gen_code
         
         return session_code
+    
+    # Turns a series of literals into Operative Transform terminology
+    def TurnToOperative(self, adds, dels):
+        # First we want to create a full list of literals
+        literals = []
+        for each_add in adds:
+            literals.append([each_add[0], each_add[1], "a"])
+        for each_del in dels:
+            literals.append([each_del[0], each_del[1], "d"])
+
+        # Then we want to sort our literals from the indexes they go to
+        literals.sort(key= lambda x: x[1])
+
+        # And now, we convert them into an OT term
+        indextracker = 0
+        OT = []
+        for each_literal in literals:
+            literal_index = each_literal[1]
+            # If the index of this change is past our current index, we add a skip
+            if literal_index > indextracker:
+                skip = literal_index - indextracker
+                OT.append(skip)
+                indextracker = literal_index
+            # Then, if the literal is an addition, plot it in
+            if each_literal[2] == "a":
+                OT.append(each_literal[0])
+                # push the index tracker spaces equal to length of literal
+                indextracker += len(each_literal[0])
+            # Else it's a delete, so plot that in
+            else:
+                delete_token = {'d': each_literal[0]}
+                OT.append(delete_token)
+        
+        # Finally we normalize the operation for use by the actual system
+        OT = ottype.normalize(OT)
+        return OT
+
+    # Use Operative Transforms to make our changes
+    def MakeChanges(self):
+        pass
 
 if __name__ == '__main__':
     conf = {
