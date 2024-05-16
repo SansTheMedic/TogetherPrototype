@@ -136,6 +136,31 @@ class Liveshare(object):
             return {"error": True,
                     "msg": "You aren't part of that session",
                     "newState": None}
+        
+    # AJAX based call to handle a user requesting an edit
+    @cherrypy.expose(["fetch"])
+    @cherrypy.tools.allow(methods=["GET"])
+    @cherrypy.tools.json_out()
+    def DeliverUpdate(self, sessionCode):
+        # turn out sessionCode back into an int
+        session_code = int(sessionCode)
+
+        # Get the user from cookies
+        this_user = cherrypy.request.cookie["User_id"]
+
+        # Make sure that the user making this call is in the session
+        if self.Sessions[session_code].IsUser(this_user) == True:
+            # Get the current state of the session
+            current_state = self.Sessions[session_code].GetState()
+
+            # Return our state to the user
+            return {"error": False,
+                    "msg": None,
+                    "newState": current_state}
+        else:
+            return {"error": True,
+                    "msg": "You aren't part of that session",
+                    "newState": None}
 
 
     # If a user input_json[sessionCode]is trying to join a session that doesn't exist, we call this to create a new one

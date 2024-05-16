@@ -17,6 +17,28 @@
 
         function loadState() {
             textbox.value = old_state;
+            window.setInterval(FetchUpdates, 5000);
+        }
+
+        function FetchUpdates(){
+            //send an AJAX call to go get the data
+            var requestData = {
+                sessionCode: sessionCode
+            };
+
+            $.get({
+                data: requestData,
+                url: "/fetch",
+                success: function(response) {
+                    if (response.error) {
+                        alert(response.msg);
+                    }
+                    else {
+                        old_state = response.newState;
+                        textbox.value = response.newState;
+                    }
+                }
+            });
         }
 
         textbox.onkeyup = function(){
