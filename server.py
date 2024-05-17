@@ -98,11 +98,12 @@ class Liveshare(object):
 
         self.DeleteDeadSessions()
         
-
+    # Home page, just redirects to create a new session
     @cherrypy.expose
     def index(self):
         raise cherrypy.HTTPRedirect("/JoinSession")
     
+    # Call to join a session. If no session code is given or no session exists for a given code, creates a new one
     @cherrypy.expose
     def JoinSession(self, session_code=0):
         # our url parameters come as strings, so we need to turn them to ints
