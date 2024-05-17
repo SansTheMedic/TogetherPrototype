@@ -7,9 +7,16 @@ import threading
 class Session():
     # Initialization. Generates its storage and a random session code
     def __init__(self):
+        # List of users registered to this session
         self.users = []
+        # Unique ID for the session
         self.sessionCode = 0
+        # Current state of the session
         self.state = ""
+        # Our queue of Operation Transform Changes
+        self.changes = []
+        # A lock to ensure changes are handled one at a time
+        self.lock = threading.Lock()
 
         # Generates a random 32-bit integer for the room code, excluding 0
         self.sessionCode = random.randint(1,2147483647)
@@ -49,6 +56,28 @@ class Session():
             return 1
         else:
             return "WARN: this user wasn't in this session"
+        
+    # Commits the next edit to the session
+    def Commit(self):
+        # Lock our state temporarily to ensure only one command is used at once
+        with self.lock:
+            # Get the current state
+            current_state = self.GetState()
+
+            # Get the next update. In theory, this should be the one that started this function
+            operation = self.changes[0]
+            # Remove that update from the queue
+            self.changes.pop(0)
+
+            # Apply that update to the state
+            new_state = ottype.apply(current_state, operation)
+
+            # Transform all remaining operations in the queue to bridge the change
+            for i in range(len(self.changes)):
+                self.changes[i] = ottype.transform(self.changes[i], operation)
+            
+            # Apply the new state to the session
+            self.SetState(new_state)
 
 
 class Liveshare(object):
@@ -56,10 +85,7 @@ class Liveshare(object):
     def __init__(self):
         # Our dictionary of sessions. Each session will be keyed by its code and contain the session object
         self.Sessions = {}
-        # Our queue of Operation Transform Changes
-        self.changes = []
-        # A lock to ensure changes are handled one at a time
-        self.lock = threading.Lock()
+        
 
     @cherrypy.expose
     def index(self):
@@ -122,27 +148,10 @@ class Liveshare(object):
         # Make sure that the user making this call is in the session
         if self.Sessions[session_code].IsUser(this_user) == True:
             # Add the operation to the queue
-            self.changes.append(operative_command)
+            self.Sessions[session_code].changes.append(operative_command)
 
-            # Lock our state temporarily to ensure only one command is used at once
-            with self.lock:
-                # Get the current state
-                current_state = self.Sessions[session_code].GetState()
-
-                # Get the next update. In theory, this should be the one that started this function
-                operation = self.changes[0]
-                # Remove that update from the queue
-                self.changes.pop(0)
-
-                # Apply that update to the state
-                new_state = ottype.apply(current_state, operation)
-
-                # Transform all remaining operations in the queue to bridge the change
-                for i in range(len(self.changes)):
-                    self.changes[i] = ottype.transform(self.changes[i], operation)
-                
-                # Apply the new state to the session
-                self.Sessions[session_code].SetState(new_state)
+            # Commit the change
+            self.Sessions[session_code].Commit()
 
             # Return our state to the user
             return {"error": False,
