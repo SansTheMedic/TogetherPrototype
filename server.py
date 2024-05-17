@@ -95,6 +95,8 @@ class Liveshare(object):
     def __init__(self):
         # Our dictionary of sessions. Each session will be keyed by its code and contain the session object
         self.Sessions = {}
+
+        self.DeleteDeadSessions()
         
 
     @cherrypy.expose
