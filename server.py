@@ -3,6 +3,7 @@ import ottype
 import random
 import os, os.path
 import threading
+import datetime
 
 class Session():
     # Initialization. Generates its storage and a random session code
@@ -17,6 +18,8 @@ class Session():
         self.changes = []
         # A lock to ensure changes are handled one at a time
         self.lock = threading.Lock()
+        # The time of the last edit made to this session, or in this case time of creation
+        self.lastHeartbeat = datetime.datetime.now()
 
         # Generates a random 32-bit integer for the room code, excluding 0
         self.sessionCode = random.randint(1,2147483647)
@@ -57,6 +60,10 @@ class Session():
         else:
             return "WARN: this user wasn't in this session"
         
+    # Get the last heartbeat
+    def GetLastHeartbeat(self):
+        return self.lastHeartbeat
+        
     # Commits the next edit to the session
     def Commit(self):
         # Lock our state temporarily to ensure only one command is used at once
@@ -78,6 +85,9 @@ class Session():
             
             # Apply the new state to the session
             self.SetState(new_state)
+
+            # Update the latest update time
+            self.lastHeartbeat = datetime.datetime.now()
 
 
 class Liveshare(object):
@@ -254,7 +264,24 @@ class Liveshare(object):
         OT = ottype.normalize(OT)
         return OT
     
-    
+    # Function that runs periodically to check for any sessions that need to die
+    def DeleteDeadSessions(self):
+        # Get the current time
+        current_time = datetime.datetime.now()
+
+        # Check every session currently stored
+        for each_session in self.Sessions:
+            # Get the last edit time of the session
+            last_heartbeat = self.Sessions[each_session].GetLastHeartbeat()
+
+            # If it's been 24 hours since the last edit, nuke it
+            if current_time > last_heartbeat + datetime.timedelta(days=1):
+                self.Sessions.pop(each_session)
+
+        # Start a new timer to check again in 30 minutes
+        do_again = threading.Timer(1800, self.DeleteDeadSessions)
+        do_again.start()
+
 
 if __name__ == '__main__':
     conf = {
