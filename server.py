@@ -145,6 +145,12 @@ class Liveshare(object):
         # Get the user from cookies
         this_user = cherrypy.request.cookie["User_id"]
 
+        # Make sure the given session actually exists
+        if session_code not in self.Sessions.keys():
+            return {"error": True,
+                    "msg": "This session does not exist",
+                    "newState": None}
+
         # Make sure that the user making this call is in the session
         if self.Sessions[session_code].IsUser(this_user) == True:
             # Add the operation to the queue
@@ -172,6 +178,12 @@ class Liveshare(object):
 
         # Get the user from cookies
         this_user = cherrypy.request.cookie["User_id"]
+
+        # Make sure the given session actually exists
+        if session_code not in self.Sessions.keys():
+            return {"error": True,
+                    "msg": "This session does not exist",
+                    "newState": None}
 
         # Make sure that the user making this call is in the session
         if self.Sessions[session_code].IsUser(this_user) == True:
@@ -241,10 +253,8 @@ class Liveshare(object):
         # Finally we normalize the operation for use by the actual system
         OT = ottype.normalize(OT)
         return OT
-
-    # Use Operative Transforms to make our changes
-    def MakeChanges(self):
-        pass
+    
+    
 
 if __name__ == '__main__':
     conf = {
