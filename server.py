@@ -101,7 +101,7 @@ class Liveshare(object):
 
     @cherrypy.expose
     def index(self):
-        return "Hello World!"
+        raise cherrypy.HTTPRedirect("/JoinSession")
     
     @cherrypy.expose
     def JoinSession(self, session_code=0):
