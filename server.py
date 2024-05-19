@@ -134,7 +134,7 @@ class Liveshare(object):
         # Add the session code
         session_page = session_page.replace("[[SESSIONCODE]]", str(session_code))
         # Add the current state
-        session_page = session_page.replace("[[CURRENTSTATE]]", self.Sessions[session_code].GetState())
+        session_page = session_page.replace("[[CURRENTSTATE]]", self.Sessions[session_code].GetState().replace("\n",""))
 
         return session_page
     
@@ -211,6 +211,15 @@ class Liveshare(object):
             return {"error": True,
                     "msg": "You aren't part of that session",
                     "newState": None}
+        
+    # API call to create a new session and give the code of it back
+    @cherrypy.expose
+    def APIMakeSession(self):
+        # Create a new session
+        session_code = self.CreateSession()
+
+        # Send that session code back to the caller
+        return session_code
 
 
     # If a user input_json[sessionCode]is trying to join a session that doesn't exist, we call this to create a new one
@@ -238,6 +247,9 @@ class Liveshare(object):
         for each_add in adds:
             literals.append([each_add[0], each_add[1], "a"])
         for each_del in dels:
+            # If we're trying to delete an empty string (for some reason).. Don't, that's dumb
+            if each_del[0] == "":
+                continue
             literals.append([each_del[0], each_del[1], "d"])
 
         # Then we want to sort our literals from the indexes they go to

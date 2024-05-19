@@ -2,22 +2,70 @@
     <head>
         <script src="/static/PatienceDiff.js"></script>
         <script src="/static/jquery-3.7.1.min.js"></script>
+
+        <!-- Load Blockly core -->
+        <script src="https://unpkg.com/blockly/blockly_compressed.js"></script>
+        <!-- Load the default blocks -->
+        <script src="https://unpkg.com/blockly/blocks_compressed.js"></script>
+        <!-- Load a generator -->
+        <script src="https://unpkg.com/blockly/javascript_compressed.js"></script>
+        <!-- Load a message file -->
+        <script src="https://unpkg.com/blockly/msg/en.js"></script>
     </head>
-    <body onload="loadState()">
+    <body onload="loadState()" style="background-color: darkgray;">
         <p id="session_code">You are connected to session [[SESSIONCODE]]</p>
-        <textarea id="Liveshare" style="width: 100%; height: 50%;"></textarea>
+        <div id="blocklyDiv" style="width: 100%; height: 50%;"></div>
     </body>
     <script>
         // The session code, for when we make calls to the server
         var sessionCode = [[SESSIONCODE]];
-        // our chat box to share
-        var textbox = document.getElementById('Liveshare')
+        
         // the CURRENT state of the textbox
-        var old_state = "[[CURRENTSTATE]]";
+        var old_state = '[[CURRENTSTATE]]';
+
+        // Options for the observer (which mutations to observe)
+        const config = { attributes: false, childList: true, subtree: false };
+
+        // Blockly toolbox
+        const toolbox = {
+        'kind': 'flyoutToolbox',
+        'contents': [
+            {
+            'kind': 'block',
+            'type': 'controls_repeat_ext',
+            'inputs': {
+                'TIMES': {
+                'shadow': {
+                    'type': 'math_number',
+                    'fields': {
+                    'NUM': 5
+                    }
+                }
+                }
+            }
+            }
+        ]
+        };
+
+        // Activate blockly
+        const workspace = Blockly.inject('blocklyDiv', {
+            toolbox: toolbox,
+            scrollbars: false,
+            horizontalLayout: true,
+            toolboxPosition: "end",
+        });
+
+        const supportedEvents = new Set([
+            Blockly.Events.BLOCK_CHANGE,
+            Blockly.Events.BLOCK_CREATE,
+            Blockly.Events.BLOCK_DELETE,
+            Blockly.Events.BLOCK_MOVE,
+        ]);
+
 
         function loadState() {
-            textbox.value = old_state;
             window.setInterval(FetchUpdates, 5000);
+            Blockly.serialization.workspaces.load(JSON.parse(old_state), workspace);
         }
 
         function FetchUpdates(){
@@ -35,17 +83,24 @@
                     }
                     else {
                         old_state = response.newState;
-                        textbox.value = response.newState;
+                        workspace.removeChangeListener(updateHappened);
+                        Blockly.serialization.workspaces.load(JSON.parse(old_state), workspace);
+                        workspace.addChangeListener(updateHappened);
                     }
                 }
             });
         }
 
-        textbox.onkeyup = function(){
-            // Get the text in the box
-            var new_state = textbox.value;
+        // Callback function when mutations are observed: it means an edit has occured and we must commit it
+        function updateHappened(event) {
+            if (workspace.isDragging()) return; // Don't update while changes are happening.
+            if (!supportedEvents.has(event.type)) return;
+            // Turn off the update listener for now
+            workspace.removeChangeListener(updateHappened);
+            // Get the state of the canvas, and stringify it to turn it into a string that patienceDiff can iterate
+            const new_state = JSON.stringify(Blockly.serialization.workspaces.save(workspace));
             // Get our differences in the text
-            var diff = patienceDiff(old_state.split(""), new_state.split(""));
+            var diff = patienceDiff(old_state.split(), new_state.split());
             var diffs = diff.lines;
             // A list of our additions and deletions
             var adds = [];
@@ -86,10 +141,13 @@
                     }
                     else {
                         old_state = response.newState;
-                        textbox.value = response.newState;
+                        workspace.addChangeListener(updateHappened);
                     }
                 }
             });
         }
+
+        // Blockly canvas updater
+        workspace.addChangeListener(updateHappened);
     </script>
 </html>
