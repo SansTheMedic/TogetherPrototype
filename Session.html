@@ -11,6 +11,8 @@
         <script src="https://unpkg.com/blockly/javascript_compressed.js"></script>
         <!-- Load a message file -->
         <script src="https://unpkg.com/blockly/msg/en.js"></script>
+
+        <script src="/static/blocks.js"></script>
     </head>
     <body onload="loadState()" style="background-color: darkgray;">
         <p id="session_code">You are connected to session [[SESSIONCODE]]</p>
@@ -43,7 +45,43 @@
                 }
                 }
             }
-            }
+            },
+            {
+                'kind': 'block',
+                'type': 'startblock'
+            },
+            {
+                'kind': 'block',
+                'type': 'ifstatement'
+            },
+            {
+                'kind': 'block',
+                'type': 'ifelsestatement'
+            },
+            {
+                'kind': 'block',
+                'type': 'variable'
+            },
+            {
+                'kind': 'block',
+                'type': 'equivalence'
+            },
+            {
+                'kind': 'block',
+                'type': 'setting'
+            },
+            {
+                'kind': 'block',
+                'type': 'const'
+            },
+            {
+                'kind': 'block',
+                'type': 'mathconst'
+            },
+            {
+                'kind': 'block',
+                'type': 'mathvar'
+            },
         ]
         };
 
